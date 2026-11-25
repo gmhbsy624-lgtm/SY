@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>나만의 여행 예산 시뮬레이션</title>
+<style>
+  :root {
+    --bg: #f3f6fb;
+    --card: #ffffff;
+    --text: #1f2937;
+    --muted: #6b7280;
+    --line: #e5e7eb;
+    --primary: #2563eb;
+    --ok: #16a34a;
+    --caution: #d97706;
+    --warn: #ea580c;
+    --danger: #dc2626;
+    --radius: 16px;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    font-family: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+  }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 20px 16px 48px; }
+
+  header.hero {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    flex-wrap: wrap; margin-bottom: 18px;
+  }
+  header.hero h1 { margin: 0; font-size: clamp(1.4rem, 4vw, 2rem); letter-spacing: -0.02em; }
+  header.hero p { margin: 4px 0 0; color: var(--muted); font-size: .95rem; }
+
+  .btn-reset {
+    border: 1px solid var(--line); background: #fff; color: var(--text);
+    padding: 10px 18px; border-radius: 999px; font-size: .95rem; font-weight: 600;
+    cursor: pointer; transition: .15s;
+  }
+  .btn-reset:hover { background: #f9fafb; border-color: #cbd5e1; }
+  .btn-reset:active { transform: scale(.97); }
+
+  .layout { display: grid; grid-template-columns: 1fr; gap: 16px; }
+  @media (min-width: 900px) {
+    .layout { grid-template-columns: 5fr 7fr; align-items: start; }
+    .col-right { position: sticky; top: 16px; }
+  }
+  .col { display: grid; gap: 16px; }
+
+  .card {
+    background: var(--card); border-radius: var(--radius); padding: 20px;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, .06), 0 4px 16px rgba(15, 23, 42, .04);
+  }
+  .card h2 { margin: 0 0 14px; font-size: 1.1rem; }
+
+  .field { display: grid; gap: 6px; margin-bottom: 12px; }
+  .field:last-child { margin-bottom: 0; }
+  .field label { font-size: .85rem; color: var(--muted); font-weight: 600; }
+  .row2 { display: grid; grid-template-columns: 1fr; gap: 12px; }
+  @media (min-width: 480px) { .row2 { grid-template-columns: 1fr 1fr; } }
+
+  input[type="text"], input[type="date"] {
+    width: 100%; font: inherit; font-size: 1rem; padding: 11px 12px;
+    border: 1px solid #d1d5db; border-radius: 10px; background: #fff; color: var(--text);
+    transition: border-color .15s, box-shadow .15s;
+  }
+  input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37, 99, 235, .15); }
+  input.invalid { border-color: var(--danger); box-shadow: 0 0 0 3px rgba(220, 38, 38, .12); }
+
+  .money { position: relative; }
+  .money input { text-align: right; padding-right: 34px; font-variant-numeric: tabular-nums; }
+  .money .won { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+  .hint { font-size: .78rem; color: var(--danger); min-height: 1.1em; margin: 0; }
+  .note { font-size: .82rem; color: var(--muted); margin: 6px 0 0; }
+  .note.error { color: var(--danger); }
+
+  .budget-input input { font-size: 1.25rem; font-weight: 700; }
+
+  .cat-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+  @media (min-width: 480px) and (max-width: 899px) { .cat-grid { grid-template-columns: 1fr 1fr; } }
+  .cat-item .lbl { display: flex; align-items: center; gap: 8px; font-size: .9rem; font-weight: 600; margin-bottom: 6px; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; flex: none; }
+
+  /* summary */
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 18px; }
+  @media (max-width: 560px) { .stats { grid-template-columns: 1fr; } }
+  .stat { background: #f8fafc; border-radius: 12px; padding: 12px 14px; border: 1px solid var(--line); }
+  .stat .k { font-size: .8rem; color: var(--muted); font-weight: 600; }
+  .stat .v { font-size: clamp(1.05rem, 2.6vw, 1.35rem); font-weight: 800; margin-top: 2px; word-break: keep-all; font-variant-numeric: tabular-nums; }
+  .stat.remain.low .v { color: var(--warn); }
+  .stat.remain.over .v { color: var(--danger); }
+
+  .progress-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; gap: 8px; flex-wrap: wrap; }
+  .progress-head .pct { font-size: 1.6rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .progress-head .sub { color: var(--muted); font-size: .85rem; }
+  .bar {
+    position: relative; height: 26px; background: #e5e7eb; border-radius: 999px; overflow: hidden;
+    display: flex;
+  }
+  .bar .seg { height: 100%; transition: width .35s ease; min-width: 0; }
+  .bar .marker {
+    position: absolute; top: 0; bottom: 0; width: 3px; background: #111827; display: none; z-index: 2;
+  }
+  .bar-wrap.status-ok .pct { color: var(--ok); }
+  .bar-wrap.status-caution .pct { color: var(--caution); }
+  .bar-wrap.status-warn .pct { color: var(--warn); }
+  .bar-wrap.status-danger .pct { color: var(--danger); }
+  .bar-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 10px; font-size: .8rem; color: var(--muted); }
+  .bar-legend span { display: inline-flex; align-items: center; gap: 5px; }
+
+  .alert {
+    margin-top: 16px; padding: 12px 14px; border-radius: 12px; font-weight: 600; font-size: .95rem;
+    display: flex; gap: 10px; align-items: flex-start;
+    border: 1px solid transparent;
+  }
+  .alert.ok { background: #ecfdf5; color: #166534; border-color: #bbf7d0; }
+  .alert.info { background: #eff6ff; color: #1e40af; border-color: #bfdbfe; }
+  .alert.caution { background: #fffbeb; color: #92400e; border-color: #fde68a; }
+  .alert.warn { background: #fff7ed; color: #9a3412; border-color: #fed7aa; }
+  .alert.danger { background: #fef2f2; color: #991b1b; border-color: #fecaca; }
+
+  /* comparison chart */
+  .chart { display: grid; gap: 12px; }
+  .crow { display: grid; grid-template-columns: 78px 1fr; gap: 10px; align-items: center; }
+  @media (max-width: 400px) { .crow { grid-template-columns: 64px 1fr; } }
+  .crow .name { font-size: .85rem; font-weight: 600; }
+  .crow .track { position: relative; height: 30px; background: #f1f5f9; border-radius: 8px; overflow: hidden; }
+  .crow .fill { height: 100%; border-radius: 8px; transition: width .35s ease; min-width: 0; }
+  .crow .val {
+    position: absolute; left: 8px; top: 50%; transform: translateY(-50%);
+    font-size: .8rem; font-weight: 700; color: #111827; font-variant-numeric: tabular-nums;
+    background: rgba(255,255,255,.85); padding: 1px 6px; border-radius: 6px; white-space: nowrap;
+  }
+  .crow.total .name, .crow.budget .name { font-weight: 800; }
+  .crow.total .track, .crow.budget .track { background: #e2e8f0; }
+  .divider { height: 1px; background: var(--line); margin: 2px 0; }
+  .chart-note { font-size: .78rem; color: var(--muted); margin-top: 10px; }
+
+  .table-wrap { margin-top: 16px; overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+  th, td { padding: 8px 6px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+  th:first-child, td:first-child { text-align: left; }
+  th { color: var(--muted); font-weight: 600; font-size: .8rem; }
+  tfoot td { font-weight: 800; border-bottom: none; }
+  td { font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <div>
+      <h1>✈️ 나만의 여행 예산 시뮬레이션</h1>
+      <p>예산과 지출을 입력하면 결과가 바로 계산됩니다.</p>
+    </div>
+    <button type="button" class="btn-reset" id="resetBtn">↺ 초기화</button>
+  </header>
+
+  <div class="layout">
+    <!-- 입력 영역 -->
+    <div class="col col-left">
+      <section class="card" aria-labelledby="tripTitle">
+        <h2 id="tripTitle">여행 정보</h2>
+        <div class="field">
+          <label for="destination">여행지</label>
+          <input type="text" id="destination" placeholder="예: 제주도" maxlength="40" autocomplete="off">
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label for="startDate">여행 시작일</label>
+            <input type="date" id="startDate">
+          </div>
+          <div class="field">
+            <label for="endDate">여행 종료일</label>
+            <input type="date" id="endDate">
+          </div>
+        </div>
+        <p class="note" id="dateNote" aria-live="polite"></p>
+      </section>
+
+      <section class="card" aria-labelledby="budgetTitle">
+        <h2 id="budgetTitle">총예산</h2>
+        <div class="field budget-input">
+          <label for="budget">여행에 사용할 총예산</label>
+          <div class="money">
+            <input type="text" id="budget" data-money inputmode="numeric" autocomplete="off" placeholder="0">
+            <span class="won">원</span>
+          </div>
+          <p class="hint" id="hint-budget" aria-live="polite"></p>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="expTitle">
+        <h2 id="expTitle">항목별 지출</h2>
+        <div class="cat-grid" id="catGrid"></div>
+        <p class="note">숫자만 입력할 수 있으며, 비워 두면 0원으로 계산됩니다.</p>
+      </section>
+    </div>
+
+    <!-- 결과 영역 -->
+    <div class="col col-right">
+      <section class="card" aria-labelledby="sumTitle">
+        <h2 id="sumTitle">예산 사용 현황</h2>
+
+        <div class="stats">
+          <div class="stat"><div class="k">총예산</div><div class="v" id="sBudget">0원</div></div>
+          <div class="stat"><div class="k">전체 지출 금액</div><div class="v" id="sSpent">0원</div></div>
+          <div class="stat remain" id="sRemainBox"><div class="k" id="sRemainLabel">남은 예산</div><div class="v" id="sRemain">0원</div></div>
+        </div>
+
+        <div class="bar-wrap" id="barWrap">
+          <div class="progress-head">
+            <div><span class="sub">총예산 대비 지출 비율</span><div class="pct" id="pct">0%</div></div>
+            <div class="sub" id="pctSub"></div>
+          </div>
+          <div class="bar" id="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="총예산 대비 지출 비율"></div>
+          <div class="bar-legend" id="barLegend"></div>
+        </div>
+
+        <div class="alert info" id="alertBox" role="status" aria-live="polite"></div>
+        <p class="note" id="perDay"></p>
+      </section>
+
+      <section class="card" aria-labelledby="chartTitle">
+        <h2 id="chartTitle">지출 항목별 비교 그래프</h2>
+        <div class="chart" id="chart"></div>
+        <p class="chart-note">막대 길이는 총예산·전체 지출·항목별 금액 중 가장 큰 값을 기준으로 비교됩니다.</p>
+
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>항목</th><th>금액</th><th>지출 비중</th><th>예산 대비</th></tr></thead>
+            <tbody id="tbody"></tbody>
+            <tfoot id="tfoot"></tfoot>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var DEFAULT_BUDGET = 500000;
+  var MAX_DIGITS = 11; // 최대 99,999,999,999원
+  var CATS = [
+    { id: 'transport', name: '교통비',   icon: '🚆', color: '#3b82f6' },
+    { id: 'stay',      name: '숙박비',   icon: '🏨', color: '#8b5cf6' },
+    { id: 'food',      name: '식비',     icon: '🍽️', color: '#f59e0b' },
+    { id: 'sight',     name: '관광비',   icon: '🎡', color: '#10b981' },
+    { id: 'shop',      name: '쇼핑비',   icon: '🛍️', color: '#ec4899' },
+    { id: 'etc',       name: '기타 비용', icon: '📦', color: '#64748b' }
+  ];
+
+  var $ = function (id) { return document.getElementById(id); };
+  var won = function (n) { return Math.round(n).toLocaleString('ko-KR') + '원'; };
+
+  /* ---------- 항목 입력 칸 생성 ---------- */
+  var grid = $('catGrid');
+  CATS.forEach(function (c) {
+    var d = document.createElement('div');
+    d.className = 'cat-item field';
+    d.innerHTML =
+      '<div class="lbl"><span class="dot" style="background:' + c.color + '"></span>' + c.icon + ' <label for="in-' + c.id + '">' + c.name + '</label></div>' +
+      '<div class="money"><input type="text" id="in-' + c.id + '" data-money inputmode="numeric" autocomplete="off" placeholder="0"><span class="won">원</span></div>' +
+      '<p class="hint" id="hint-in-' + c.id + '" aria-live="polite"></p>';
+    grid.appendChild(d);
+  });
+
+  /* ---------- 그래프/범례/표 뼈대 생성 ---------- */
+  var chart = $('chart');
+  var chartHtml = '';
+  CATS.forEach(function (c) {
+    chartHtml += '<div class="crow"><div class="name">' + c.name + '</div>' +
+      '<div class="track"><div class="fill" id="cf-' + c.id + '" style="width:0;background:' + c.color + '"></div><span class="val" id="cv-' + c.id + '">0원</span></div></div>';
+  });
+  chartHtml += '<div class="divider"></div>' +
+    '<div class="crow total"><div class="name">전체 지출</div><div class="track"><div class="fill" id="cf-total" style="width:0;background:#111827"></div><span class="val" id="cv-total">0원</span></div></div>' +
+    '<div class="crow budget"><div class="name">총예산</div><div class="track"><div class="fill" id="cf-budget" style="width:0;background:#93c5fd"></div><span class="val" id="cv-budget">0원</span></div></div>';
+  chart.innerHTML = chartHtml;
+
+  var legend = $('barLegend');
+  legend.innerHTML = CATS.map(function (c) {
+    return '<span><i class="dot" style="background:' + c.color + '"></i>' + c.name + '</span>';
+  }).join('');
+
+  var bar = $('bar');
+  bar.innerHTML = CATS.map(function (c) {
+    return '<div class="seg" id="seg-' + c.id + '" style="width:0;background:' + c.color + '"></div>';
+  }).join('') + '<div class="marker" id="marker" title="총예산 한도"></div>';
+
+  $('tbody').innerHTML = CATS.map(function (c) {
+    return '<tr><td><i class="dot" style="background:' + c.color + ';margin-right:6px"></i>' + c.name + '</td>' +
+      '<td id="tv-' + c.id + '">0원</td><td id="ts-' + c.id + '">0%</td><td id="tb-' + c.id + '">0%</td></tr>';
+  }).join('');
+
+  /* ---------- 숫자 입력 처리 ---------- */
+  function parseMoney(el) {
+    var d = el.value.replace(/\D/g, '');
+    return d ? parseInt(d, 10) : 0;
+  }
+
+  function showHint(el, msg) {
+    var h = $('hint-' + el.id);
+    if (!h) return;
+    h.textContent = msg || '';
+    el.classList.toggle('invalid', !!msg);
+    if (msg) {
+      clearTimeout(el._t);
+      el._t = setTimeout(function () { h.textContent = ''; el.classList.remove('invalid'); }, 2200);
+    }
+  }
+
+  function formatField(el) {
+    var raw = el.value;
+    var pos = el.selectionStart == null ? raw.length : el.selectionStart;
+    var digitsBefore = raw.slice(0, pos).replace(/\D/g, '').length;
+
+    var invalid = /[^\d,\s]/.test(raw); // 숫자·쉼표 외 문자(음수 부호, 소수점, 문자 등)
+    var digits = raw.replace(/\D/g, '');
+    var tooLong = digits.length > MAX_DIGITS;
+    if (tooLong) digits = digits.slice(0, MAX_DIGITS);
+    digits = digits.replace(/^0+(?=\d)/, '');
+
+    var formatted = digits ? Number(digits).toLocaleString('ko-KR') : '';
+    if (formatted !== raw) {
+      el.value = formatted;
+      // 커서 위치 복원
+      var count = 0, newPos = formatted.length;
+      if (digitsBefore === 0) { newPos = 0; }
+      else {
+        for (var i = 0; i < formatted.length; i++) {
+          if (/\d/.test(formatted[i])) count++;
+          if (count >= digitsBefore) { newPos = i + 1; break; }
+        }
+      }
+      try { el.setSelectionRange(newPos, newPos); } catch (e) {}
+    }
+    if (invalid) showHint(el, '0 이상의 숫자만 입력할 수 있어요.');
+    else if (tooLong) showHint(el, '입력 가능한 최대 금액을 넘었어요.');
+  }
+
+  var moneyInputs = Array.prototype.slice.call(document.querySelectorAll('input[data-money]'));
+  moneyInputs.forEach(function (el) {
+    // 잘못된 문자는 입력 시점에 차단
+    el.addEventListener('beforeinput', function (e) {
+      if (e.data && /[^\d,]/.test(e.data) && e.inputType && e.inputType.indexOf('insert') === 0) {
+        e.preventDefault();
+        showHint(el, '0 이상의 숫자만 입력할 수 있어요.');
+      }
+    });
+    el.addEventListener('input', function () { formatField(el); update(); });
+    el.addEventListener('blur', function () { formatField(el); });
+  });
+
+  /* ---------- 날짜 ---------- */
+  var startEl = $('startDate'), endEl = $('endDate');
+  function dayCount() {
+    if (!startEl.value || !endEl.value) return null;
+    var s = new Date(startEl.value + 'T00:00:00'), e = new Date(endEl.value + 'T00:00:00');
+    var nights = Math.round((e - s) / 86400000);
+    if (nights < 0) return -1;
+    return nights;
+  }
+  function updateDates() {
+    var note = $('dateNote');
+    endEl.min = startEl.value || '';
+    var n = dayCount();
+    note.classList.remove('error');
+    if (n === null) { note.textContent = ''; }
+    else if (n === -1) { note.textContent = '종료일은 시작일보다 빠를 수 없어요.'; note.classList.add('error'); }
+    else { note.textContent = '여행 기간: ' + (n === 0 ? '당일치기 (1일)' : n + '박 ' + (n + 1) + '일'); }
+  }
+  startEl.addEventListener('change', function () { updateDates(); update(); });
+  endEl.addEventListener('change', function () { updateDates(); update(); });
+  $('destination').addEventListener('input', update);
+
+  /* ---------- 계산 및 화면 갱신 ---------- */
+  function update() {
+    var budget = parseMoney($('budget'));
+    var vals = {}, spent = 0, maxCat = 0;
+    CATS.forEach(function (c) {
+      var v = parseMoney($('in-' + c.id));
+      vals[c.id] = v; spent += v; if (v > maxCat) maxCat = v;
+    });
+    var remain = budget - spent;
+    var over = spent > budget;
+    var pctVal = budget > 0 ? (spent / budget) * 100 : (spent > 0 ? Infinity : 0);
+
+    // 요약 숫자
+    $('sBudget').textContent = won(budget);
+    $('sSpent').textContent = won(spent);
+    var rb = $('sRemainBox');
+    rb.classList.toggle('over', remain < 0);
+    rb.classList.toggle('low', remain >= 0 && budget > 0 && pctVal >= 90);
+    $('sRemainLabel').textContent = remain < 0 ? '초과 금액' : '남은 예산';
+    $('sRemain').textContent = remain < 0 ? '-' + won(-remain) : won(remain);
+
+    // 비율
+    var pctText = isFinite(pctVal) ? (Math.round(pctVal * 10) / 10).toLocaleString('ko-KR') + '%' : '초과';
+    $('pct').textContent = pctText;
+    $('pctSub').textContent = isFinite(pctVal) ? '' : '총예산이 0원입니다';
+    bar.setAttribute('aria-valuenow', isFinite(pctVal) ? Math.min(100, Math.round(pctVal)) : 100);
+
+    // 상태
+    var level, msg, icon;
+    if (budget === 0 && spent === 0) {
+      level = 'info'; icon = 'ℹ️'; msg = '총예산과 항목별 지출을 입력해 보세요.';
+    } else if (over) {
+      level = 'danger'; icon = '🚨'; msg = '총예산을 ' + won(spent - budget) + ' 초과했어요! 지출을 줄이거나 예산을 늘려 주세요.';
+    } else if (pctVal >= 90) {
+      level = 'warn'; icon = '⚠️';
+      msg = remain === 0 ? '예산을 모두 사용했어요. 남은 예산이 0원입니다.' : '남은 예산이 부족해요! (남은 예산 ' + won(remain) + ')';
+    } else if (pctVal >= 70) {
+      level = 'caution'; icon = '🔔'; msg = '예산의 70% 이상을 사용했어요. 남은 예산을 확인하세요.';
+    } else {
+      level = 'ok'; icon = '✅'; msg = '예산 범위 안에서 여유 있게 계획하고 있어요.';
+    }
+    var statusClass = { ok: 'status-ok', info: 'status-ok', caution: 'status-caution', warn: 'status-warn', danger: 'status-danger' }[level];
+    $('barWrap').className = 'bar-wrap ' + statusClass;
+    var box = $('alertBox');
+    box.className = 'alert ' + level;
+    box.innerHTML = '<span>' + icon + '</span><span>' + msg + '</span>';
+
+    // 진행 막대 (항목별 누적)
+    var scaleBar = Math.max(budget, spent, 1);
+    CATS.forEach(function (c) {
+      $('seg-' + c.id).style.width = (vals[c.id] / scaleBar * 100) + '%';
+    });
+    var marker = $('marker');
+    if (over && budget > 0) {
+      marker.style.display = 'block';
+      marker.style.left = 'calc(' + (budget / scaleBar * 100) + '% - 1.5px)';
+    } else { marker.style.display = 'none'; }
+
+    // 비교 그래프
+    var scale = Math.max(budget, spent, maxCat, 1);
+    CATS.forEach(function (c) {
+      $('cf-' + c.id).style.width = (vals[c.id] / scale * 100) + '%';
+      $('cv-' + c.id).textContent = won(vals[c.id]);
+    });
+    $('cf-total').style.width = (spent / scale * 100) + '%';
+    $('cf-total').style.background = over ? '#dc2626' : '#111827';
+    $('cv-total').textContent = won(spent);
+    $('cf-budget').style.width = (budget / scale * 100) + '%';
+    $('cv-budget').textContent = won(budget);
+
+    // 표
+    CATS.forEach(function (c) {
+      var share = spent > 0 ? vals[c.id] / spent * 100 : 0;
+      var ofB = budget > 0 ? vals[c.id] / budget * 100 : 0;
+      $('tv-' + c.id).textContent = won(vals[c.id]);
+      $('ts-' + c.id).textContent = (Math.round(share * 10) / 10) + '%';
+      $('tb-' + c.id).textContent = budget > 0 ? (Math.round(ofB * 10) / 10) + '%' : '-';
+    });
+    $('tfoot').innerHTML = '<tr><td>전체 지출</td><td>' + won(spent) + '</td><td>' + (spent > 0 ? '100%' : '0%') + '</td><td>' +
+      (budget > 0 ? (Math.round(pctVal * 10) / 10) + '%' : '-') + '</td></tr>';
+
+    // 일 평균
+    var nights = dayCount();
+    var per = $('perDay');
+    var dest = $('destination').value.trim();
+    var parts = [];
+    if (dest) parts.push('📍 ' + dest);
+    if (nights !== null && nights >= 0) {
+      var days = nights + 1;
+      parts.push('하루 평균 지출 ' + won(spent / days));
+      if (remain > 0) parts.push('남은 예산 기준 하루 ' + won(remain / days) + ' 사용 가능');
+    }
+    per.textContent = parts.join(' · ');
+  }
+
+  /* ---------- 초기화 ---------- */
+  function reset() {
+    $('destination').value = '';
+    startEl.value = '';
+    endEl.value = '';
+    endEl.min = '';
+    $('budget').value = DEFAULT_BUDGET.toLocaleString('ko-KR');
+    CATS.forEach(function (c) { $('in-' + c.id).value = ''; });
+    moneyInputs.forEach(function (el) {
+      var h = $('hint-' + el.id); if (h) h.textContent = '';
+      el.classList.remove('invalid');
+    });
+    updateDates();
+    update();
+  }
+  $('resetBtn').addEventListener('click', reset);
+
+  reset();
+})();
+</script>
+</body>
+</html>
